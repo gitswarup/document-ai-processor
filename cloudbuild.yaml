@@ -1,0 +1,131 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-t', 'gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA',
+      '-t', 'gcr.io/$PROJECT_ID/document-ai-app:latest',
+      '.'
+    ]
+  
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA']
+    
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/document-ai-app:latest']
+  
+  # Run basic health check test
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      echo "Running container health check test..."
+      docker run --rm -d --name test-container \
+        -e NODE_ENV=test \
+        -e MONGODB_URI="mongodb://test:test@localhost/test" \
+        -p 8001:8000 \
+        gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA
+      
+      # Wait for container to start
+      sleep 10
+      
+      # Test health endpoint
+      if docker exec test-container curl -f http://localhost:8000/api/health; then
+        echo "Health check passed"
+        docker stop test-container
+      else
+        echo "Health check failed"
+        docker stop test-container
+        exit 1
+      fi
+  
+  # Deploy to staging (only on main branch)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      if [ "$BRANCH_NAME" = "main" ]; then
+        echo "Deploying to staging environment..."
+        
+        # Update the compute engine instance with new image
+        gcloud compute ssh $_INSTANCE_NAME \
+          --zone=$_DEPLOY_ZONE \
+          --command="
+            # Pull new image
+            docker pull gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA
+            
+            # Stop and remove old container
+            docker stop document-ai-app || true
+            docker rm document-ai-app || true
+            
+            # Start new container with production settings
+            docker run -d \
+              --name document-ai-app \
+              --restart unless-stopped \
+              -p 8000:8000 \
+              -e NODE_ENV=production \
+              -e MONGODB_URI='$_MONGODB_URI' \
+              -e GOOGLE_API_KEY='$_GOOGLE_API_KEY' \
+              -e CLAUDE_API_KEY='$_CLAUDE_API_KEY' \
+              -e AI_PROVIDER='$_AI_PROVIDER' \
+              -v /opt/document-ai/uploads:/app/uploads \
+              gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA
+            
+            # Wait for health check
+            sleep 30
+            
+            # Verify deployment
+            if curl -f http://localhost:8000/api/health; then
+              echo 'Deployment successful'
+            else
+              echo 'Deployment failed health check'
+              exit 1
+            fi
+          "
+        
+        echo "Staging deployment complete!"
+        echo "Application available at: https://$_STAGING_URL"
+      else
+        echo "Skipping deployment for branch: $BRANCH_NAME"
+      fi
+
+# Notification step (optional)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+    - '-c'
+    - |
+      if [ "$BRANCH_NAME" = "main" ]; then
+        echo "Build $BUILD_ID completed successfully"
+        echo "Image: gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA"
+        echo "Staging URL: https://$_STAGING_URL"
+        # Add Slack/email notification here if needed
+      fi
+
+# Build configuration
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+  
+# Timeout for entire build
+timeout: '1200s'
+
+# Substitutions for environment-specific values
+substitutions:
+  _DEPLOY_ZONE: 'us-central1-a'
+  _INSTANCE_NAME: 'document-ai-staging'
+  _STAGING_URL: 'staging.yourdomain.com'
+  _AI_PROVIDER: 'google'
+  # Note: Sensitive values should be stored in Secret Manager
+  # _MONGODB_URI: projects/$PROJECT_ID/secrets/mongodb-uri/versions/latest
+  # _GOOGLE_API_KEY: projects/$PROJECT_ID/secrets/google-api-key/versions/latest
+  # _CLAUDE_API_KEY: projects/$PROJECT_ID/secrets/claude-api-key/versions/latest
+
+# Optional: Store build artifacts
+artifacts:
+  images:
+  - 'gcr.io/$PROJECT_ID/document-ai-app:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/document-ai-app:latest'

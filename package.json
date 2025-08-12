@@ -1,0 +1,24 @@
+{
+  "name": "document-ai-processor",
+  "version": "1.0.0",
+  "description": "Document upload and AI processing microservice with React frontend and Node.js backend",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "debug": "concurrently \"npm run server:debug\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "server:debug": "cd server && npm run debug",
+    "client:dev": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "docker:build": "docker build -t document-ai-processor .",
+    "docker:run": "docker run -p 3000:3000 -p 5000:5000 document-ai-processor"
+  },
+  "keywords": ["document", "ai", "processing", "react", "nodejs", "microservice"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

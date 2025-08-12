@@ -1,0 +1,52 @@
+.file-upload-container {
+  margin: 20px 0;
+}
+
+.dropzone {
+  border: 2px dashed #007bff;
+  border-radius: 8px;
+  padding: 40px 20px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone:hover {
+  border-color: #0056b3;
+  background-color: #f8f9fa;
+}
+
+.dropzone.active {
+  border-color: #28a745;
+  background-color: #e8f5e9;
+}
+
+.dropzone.disabled {
+  border-color: #6c757d;
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.upload-content {
+  text-align: center;
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.upload-content p {
+  margin: 8px 0;
+  color: #333;
+}
+
+.supported-formats {
+  font-size: 14px;
+  color: #666;
+}
