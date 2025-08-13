@@ -125,3 +125,4 @@ google-vision-service-account.json
 # Other
 *.orig
 EOF < /dev/null
+..bfg-report/
